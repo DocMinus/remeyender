@@ -1,20 +1,26 @@
 # RemEYEnder
-a simple app for myself to take regular breaks to release strain on eyes.
+A simple app for myself to take regular breaks to release strain on eyes.
 
 As in, take a few moments and look away from screen.
 
-Starting with python. Maybe do a Mac/Win compiled app at some stage?
+As little intrusive as imaginable while also as simple as possible. 
+There are other timer apps "out there" already for more complex purposes.
 
-Would like it to be as little intrusive but also as simple as possible. 
-There are other timer apps out there already.
+## Usage
+Run app, press start and it reminds every 30 minutes to take 
+a break (silent). The reminder stays for 10 seconds on all screens, then
+disappears silently and the timer resets.
 
-Here, basically I press start and then it should remind every 30 minutes to take 
-a break, the reminder, for now silent, will remain for maybe 10 seconds and
-then dissappear silently and reset.
+If a meeting is ongoing (detected via microphone usage), the reminder waits and
+appears as soon as the call ends.
 
-Start window should have a simple start / stop / reset / exit option.
+## Installation
 
-For python perhaps use tkinter?
+Requires [uv](https://docs.astral.sh/uv/). In the repo:
+
+```
+uv sync
+```
 
 ## Run
 
@@ -32,4 +38,28 @@ uv run pyinstaller --windowed --name RemEYEnder --noconfirm main.py
 Result: `dist/RemEYEnder.app` (bundles Python + Tcl/Tk, ~27 MB). Drag it to
 `/Applications`. It's unsigned: a locally built copy opens normally, but a copy
 downloaded or sent from elsewhere needs right-click → Open on first launch.
-A Windows `.exe` has to be built on Windows with the same command.
+
+## Build a standalone app on other OS
+
+Windows and Linux builds have to be made on that OS. Recommended: a single executable.
+
+```
+uv sync
+uv run pyinstaller --onefile --windowed --name RemEYEnder --noconfirm main.py
+```
+
+Result: `dist/RemEYEnder.exe` (Windows) or `dist/RemEYEnder` (Linux); place it wherever
+you like. `--windowed` stops a console window from opening on Windows (no effect on
+Linux). A single-file build starts a little slower, as it unpacks itself on each launch.
+Without `--onefile`, the result is a folder, `dist/RemEYEnder/`, that has to be kept
+together.
+
+
+## Platform support
+
+| | macOS | Windows | Linux |
+|---|---|---|---|
+| Reminder on all screens | CoreGraphics | `EnumDisplayMonitors` | `xrandr` (X11/XWayland) |
+| Postpone during calls | CoreAudio (macOS 14+) | privacy registry (mic usage) | `pactl` (PulseAudio/PipeWire) |
+
+If a check isn't available, the reminder falls back to the main screen / is never postponed.

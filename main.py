@@ -2,9 +2,12 @@
 
 import ctypes
 import ctypes.util
+import re
+import subprocess
 import sys
 import tkinter as tk
 from tkinter import ttk
+from typing import Any
 
 BREAK_INTERVAL_S: int = 30 * 60
 REMINDER_DURATION_S: int = 10
@@ -42,7 +45,18 @@ _coreaudio: ctypes.CDLL | None = _load_coreaudio()
 
 
 def microphone_in_use() -> bool:
-    """True if any process is capturing audio input (macOS 14+; False elsewhere or on error)."""
+    """True if any app is capturing audio input; False if unknown or on error."""
+    if sys.platform == "darwin":
+        return _mic_in_use_macos()
+    if sys.platform == "win32":
+        return _mic_in_use_windows()
+    if sys.platform.startswith("linux"):
+        return _mic_in_use_linux()
+    return False
+
+
+def _mic_in_use_macos() -> bool:
+    """CoreAudio per-process "is running input" (macOS 14+)."""
     if _coreaudio is None:
         return False
     address = _AudioObjectPropertyAddress(_K_PROCESS_OBJECT_LIST, _K_SCOPE_GLOBAL, 0)
@@ -67,6 +81,57 @@ def microphone_in_use() -> bool:
         if status == 0 and running.value:
             return True
     return False
+
+
+def _mic_in_use_windows() -> bool:
+    """Windows privacy registry: an app's LastUsedTimeStop is 0 while it is using the mic."""
+    if sys.platform != "win32":
+        return False
+    import winreg
+
+    consent_store = (
+        r"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager"
+        r"\ConsentStore\microphone"
+    )
+
+    # Packaged apps are direct subkeys; desktop apps (e.g. Teams classic, Zoom) sit under
+    # "NonPackaged", hence the recursion.
+    def in_use(key: winreg.HKEYType) -> bool:
+        try:
+            started, _ = winreg.QueryValueEx(key, "LastUsedTimeStart")
+            stopped, _ = winreg.QueryValueEx(key, "LastUsedTimeStop")
+            if started and stopped == 0:
+                return True
+        except OSError:
+            pass
+        index = 0
+        while True:
+            try:
+                name = winreg.EnumKey(key, index)
+            except OSError:
+                return False
+            with winreg.OpenKey(key, name) as subkey:
+                if in_use(subkey):
+                    return True
+            index += 1
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, consent_store) as key:
+            return in_use(key)
+    except OSError:
+        return False
+
+
+def _mic_in_use_linux() -> bool:
+    """PulseAudio/PipeWire: any recording stream ("source output") means the mic is in use."""
+    try:
+        result = subprocess.run(
+            ["pactl", "list", "short", "source-outputs"],
+            capture_output=True, text=True, timeout=2, check=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return bool(result.stdout.strip())
 
 
 class _CGPoint(ctypes.Structure):
@@ -100,10 +165,61 @@ _coregraphics: ctypes.CDLL | None = _load_coregraphics()
 
 
 def display_bounds() -> list[tuple[int, int, int, int]]:
-    """(x, y, width, height) of each active display in global top-left-origin points.
+    """(x, y, width, height) of each display in global top-left-origin coordinates.
 
-    macOS only; empty list elsewhere or on error (callers fall back to Tk's main screen).
+    Empty list if unknown or on error (callers fall back to Tk's main screen).
     """
+    if sys.platform == "darwin":
+        return _display_bounds_macos()
+    if sys.platform == "win32":
+        return _display_bounds_windows()
+    if sys.platform.startswith("linux"):
+        return _display_bounds_linux()
+    return []
+
+
+def _display_bounds_windows() -> list[tuple[int, int, int, int]]:
+    if sys.platform != "win32":
+        return []
+    import ctypes.wintypes as wintypes
+
+    bounds: list[tuple[int, int, int, int]] = []
+    monitor_enum_proc = ctypes.WINFUNCTYPE(
+        wintypes.BOOL, wintypes.HMONITOR, wintypes.HDC, ctypes.POINTER(wintypes.RECT),
+        wintypes.LPARAM,
+    )
+
+    # rect is a ctypes POINTER(RECT); ctypes pointer types don't annotate usefully.
+    def collect(_monitor: int | None, _hdc: int | None, rect: Any, _data: int) -> bool:
+        r = rect.contents
+        bounds.append((r.left, r.top, r.right - r.left, r.bottom - r.top))
+        return True
+
+    if not ctypes.windll.user32.EnumDisplayMonitors(None, None, monitor_enum_proc(collect), 0):
+        return []
+    return bounds
+
+
+# e.g. " 0: +*DP-1 2560/597x1440/336+0+0  DP-1" -> width, height, x, y
+_XRANDR_MONITOR = re.compile(r"(\d+)/\d+x(\d+)/\d+\+(\d+)\+(\d+)")
+
+
+def _display_bounds_linux() -> list[tuple[int, int, int, int]]:
+    """X11 (and XWayland) via xrandr."""
+    try:
+        result = subprocess.run(
+            ["xrandr", "--listactivemonitors"],
+            capture_output=True, text=True, timeout=2, check=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return [
+        (int(x), int(y), int(width), int(height))
+        for width, height, x, y in _XRANDR_MONITOR.findall(result.stdout)
+    ]
+
+
+def _display_bounds_macos() -> list[tuple[int, int, int, int]]:
     if _coregraphics is None:
         return []
     display_ids = (ctypes.c_uint32 * _MAX_DISPLAYS)()

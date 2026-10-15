@@ -23,19 +23,33 @@ Other options, not yet done:
   notifications when mirroring or sharing the display"). Unverified whether Teams
   sharing triggers it; loses the 10 s on-screen countdown.
 
-## Packaged app (macOS)
+## App icon
 
-- [ ] **Hide the Dock icon (`LSUIElement`).** Set `LSUIElement = True` in the bundle's
-  Info.plist (PyInstaller: `info_plist={"LSUIElement": True}` in the `.spec`'s
-  `BUNDLE(...)`, or edit `Contents/Info.plist` after building). No Dock icon and no
-  Cmd-Tab entry; the main window stays. Downside: once the window is hidden behind
-  others it's hard to get back. Pairs well with a menu-bar icon (would need e.g.
-  `rumps`/PyObjC, since tkinter can't make menu-bar items).
-- [ ] **Custom app icon.** Make a 1024×1024 PNG (e.g. an eye), convert to `.icns`
-  (`iconutil`, or let PyInstaller convert a PNG if Pillow is installed) and build with
-  `--icon RemEYEnder.icns`. Could also set the Tk window icon via `root.iconphoto`.
+- [ ] **Custom app icon.** Make one 1024×1024 PNG (e.g. an eye) and derive the per-OS
+  formats from it:
+  - macOS: `.icns` (`iconutil`), build with `--icon RemEYEnder.icns`.
+  - Windows: `.ico` (multi-size), build with `--icon RemEYEnder.ico`.
+  - Linux: executables carry no embedded icon; point a `.desktop` file at the PNG.
+  - PyInstaller can convert the PNG itself if Pillow is installed.
+  - In-app (all OS): set the Tk window/taskbar icon via `root.iconphoto(True, ...)`.
 
-## Later
+## Cross-platform
 
-- [ ] Compiled native version (Swift or C++). In Swift, options 1–3 above get simpler
-  (direct AppKit/CoreAudio/CoreGraphics access, no ctypes).
+- [ ] **Test on Windows and Linux.** The Windows/Linux branches in `main.py` are
+  type-checked but untested on real machines (developed on macOS).
+- [ ] **Linux on Wayland.** Tk runs via XWayland; popup placement on secondary monitors and
+  "always on top" may not be honoured by every compositor. `pactl` also counts any
+  recording stream (e.g. a volume meter) as "in a call".
+
+## Optional
+
+- [ ] Compiled native version Swift, options 1–3 above get simpler
+  (direct AppKit/CoreAudio/CoreGraphics access, no ctypes). Best fit for features that 
+  are hard in Python. Those include a menu-bar icon, hiding the popup from
+  screen sharing, and a small, signed, native app. 
+  It's also less code than C++ for the same Mac app.
+- [ ] C++ version for cross platform - doesn't gain much, but could be done. 
+  The call check and the monitor list are separate code for each system in any language.
+  The window would also need a cross-platform UI library: Qt is large and has licensing
+  strings attached, and wxWidgets is the lighter option. 
+  One would end up with more code than the Python version, not less.
