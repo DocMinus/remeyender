@@ -1,11 +1,72 @@
 """RemEYEnder: a tiny, silent reminder to look away from the screen every so often."""
 
+import ctypes
+import ctypes.util
+import sys
 import tkinter as tk
 from tkinter import ttk
 
 BREAK_INTERVAL_S: int = 30 * 60
 REMINDER_DURATION_S: int = 10
 TICK_MS: int = 1000
+# Postpone a due break while any app is capturing the microphone (i.e. you're in a call).
+POSTPONE_DURING_CALLS: bool = True
+
+
+class _AudioObjectPropertyAddress(ctypes.Structure):
+    _fields_ = [
+        ("mSelector", ctypes.c_uint32),
+        ("mScope", ctypes.c_uint32),
+        ("mElement", ctypes.c_uint32),
+    ]
+
+
+def _fourcc(code: str) -> int:
+    return int.from_bytes(code.encode("ascii"), "big")
+
+
+_K_AUDIO_OBJECT_SYSTEM_OBJECT: int = 1
+_K_SCOPE_GLOBAL: int = _fourcc("glob")
+_K_PROCESS_OBJECT_LIST: int = _fourcc("prs#")  # kAudioHardwarePropertyProcessObjectList
+_K_PROCESS_IS_RUNNING_INPUT: int = _fourcc("piri")  # kAudioProcessPropertyIsRunningInput
+
+
+def _load_coreaudio() -> ctypes.CDLL | None:
+    if sys.platform != "darwin":
+        return None
+    path = ctypes.util.find_library("CoreAudio")
+    return ctypes.CDLL(path) if path else None
+
+
+_coreaudio: ctypes.CDLL | None = _load_coreaudio()
+
+
+def microphone_in_use() -> bool:
+    """True if any process is capturing audio input (macOS 14+; False elsewhere or on error)."""
+    if _coreaudio is None:
+        return False
+    address = _AudioObjectPropertyAddress(_K_PROCESS_OBJECT_LIST, _K_SCOPE_GLOBAL, 0)
+    size = ctypes.c_uint32(0)
+    if _coreaudio.AudioObjectGetPropertyDataSize(
+        _K_AUDIO_OBJECT_SYSTEM_OBJECT, ctypes.byref(address), 0, None, ctypes.byref(size)
+    ):
+        return False
+    process_ids = (ctypes.c_uint32 * (size.value // 4))()
+    if _coreaudio.AudioObjectGetPropertyData(
+        _K_AUDIO_OBJECT_SYSTEM_OBJECT, ctypes.byref(address), 0, None, ctypes.byref(size), process_ids
+    ):
+        return False
+
+    address = _AudioObjectPropertyAddress(_K_PROCESS_IS_RUNNING_INPUT, _K_SCOPE_GLOBAL, 0)
+    for process_id in process_ids:
+        running = ctypes.c_uint32(0)
+        value_size = ctypes.c_uint32(ctypes.sizeof(running))
+        status = _coreaudio.AudioObjectGetPropertyData(
+            process_id, ctypes.byref(address), 0, None, ctypes.byref(value_size), ctypes.byref(running)
+        )
+        if status == 0 and running.value:
+            return True
+    return False
 
 
 def format_mmss(seconds: int) -> str:
@@ -88,13 +149,17 @@ class RemEYEnderApp:
             elif self._reminder_label is not None:
                 self._reminder_label.configure(text=f"{self._reminder_left_s} s")
         elif self.running:
-            self.remaining_s -= 1
-            if self.remaining_s <= 0:
+            self.remaining_s = max(self.remaining_s - 1, 0)
+            # Once due, stay at 00:00 and re-check every tick until the call ends.
+            if self.remaining_s == 0 and not self._postponed():
                 self._show_reminder()
 
         if self.running or self.reminder is not None:
             self._schedule_tick()
         self._refresh()
+
+    def _postponed(self) -> bool:
+        return POSTPONE_DURING_CALLS and microphone_in_use()
 
     def _show_reminder(self) -> None:
         popup = tk.Toplevel(self.root)
@@ -132,6 +197,8 @@ class RemEYEnderApp:
         self.countdown_label.configure(text=format_mmss(self.remaining_s))
         if self.reminder is not None:
             status = "Break!"
+        elif self.running and self.remaining_s == 0:
+            status = "Break postponed: in a call"
         elif self.running:
             status = "Running"
         else:
