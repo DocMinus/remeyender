@@ -1,0 +1,7 @@
+[project]
+name = "remeyender"
+version = "0.1.0"
+description = "Simple app for taking a break and if just for a few moments"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
