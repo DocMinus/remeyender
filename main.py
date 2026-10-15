@@ -69,6 +69,56 @@ def microphone_in_use() -> bool:
     return False
 
 
+class _CGPoint(ctypes.Structure):
+    _fields_ = [("x", ctypes.c_double), ("y", ctypes.c_double)]
+
+
+class _CGSize(ctypes.Structure):
+    _fields_ = [("width", ctypes.c_double), ("height", ctypes.c_double)]
+
+
+class _CGRect(ctypes.Structure):
+    _fields_ = [("origin", _CGPoint), ("size", _CGSize)]
+
+
+_MAX_DISPLAYS: int = 16
+
+
+def _load_coregraphics() -> ctypes.CDLL | None:
+    if sys.platform != "darwin":
+        return None
+    path = ctypes.util.find_library("CoreGraphics")
+    if not path:
+        return None
+    lib = ctypes.CDLL(path)
+    lib.CGDisplayBounds.restype = _CGRect
+    lib.CGDisplayBounds.argtypes = [ctypes.c_uint32]
+    return lib
+
+
+_coregraphics: ctypes.CDLL | None = _load_coregraphics()
+
+
+def display_bounds() -> list[tuple[int, int, int, int]]:
+    """(x, y, width, height) of each active display in global top-left-origin points.
+
+    macOS only; empty list elsewhere or on error (callers fall back to Tk's main screen).
+    """
+    if _coregraphics is None:
+        return []
+    display_ids = (ctypes.c_uint32 * _MAX_DISPLAYS)()
+    count = ctypes.c_uint32(0)
+    if _coregraphics.CGGetActiveDisplayList(_MAX_DISPLAYS, display_ids, ctypes.byref(count)):
+        return []
+    bounds: list[tuple[int, int, int, int]] = []
+    for display_id in display_ids[: count.value]:
+        rect = _coregraphics.CGDisplayBounds(display_id)
+        bounds.append(
+            (int(rect.origin.x), int(rect.origin.y), int(rect.size.width), int(rect.size.height))
+        )
+    return bounds
+
+
 def format_mmss(seconds: int) -> str:
     minutes, secs = divmod(max(seconds, 0), 60)
     return f"{minutes:02d}:{secs:02d}"
@@ -79,9 +129,10 @@ class RemEYEnderApp:
         self.root = root
         self.remaining_s: int = BREAK_INTERVAL_S
         self.running: bool = False
-        self.reminder: tk.Toplevel | None = None
+        # One popup (and countdown label) per display while a reminder is showing.
+        self.reminders: list[tk.Toplevel] = []
         self._reminder_left_s: int = 0
-        self._reminder_label: ttk.Label | None = None
+        self._reminder_labels: list[ttk.Label] = []
         self._tick_job: str | None = None
 
         root.title("RemEYEnder")
@@ -118,7 +169,7 @@ class RemEYEnderApp:
     def stop(self) -> None:
         self.running = False
         # Keep ticking while a reminder is showing so it still closes on its own.
-        if self.reminder is None:
+        if not self.reminders:
             self._cancel_tick()
         self._refresh()
 
@@ -142,19 +193,20 @@ class RemEYEnderApp:
 
     def _tick(self) -> None:
         self._tick_job = None
-        if self.reminder is not None:
+        if self.reminders:
             self._reminder_left_s -= 1
             if self._reminder_left_s <= 0:
                 self._close_reminder()
-            elif self._reminder_label is not None:
-                self._reminder_label.configure(text=f"{self._reminder_left_s} s")
+            else:
+                for label in self._reminder_labels:
+                    label.configure(text=f"{self._reminder_left_s} s")
         elif self.running:
             self.remaining_s = max(self.remaining_s - 1, 0)
             # Once due, stay at 00:00 and re-check every tick until the call ends.
             if self.remaining_s == 0 and not self._postponed():
                 self._show_reminder()
 
-        if self.running or self.reminder is not None:
+        if self.running or self.reminders:
             self._schedule_tick()
         self._refresh()
 
@@ -162,6 +214,15 @@ class RemEYEnderApp:
         return POSTPONE_DURING_CALLS and microphone_in_use()
 
     def _show_reminder(self) -> None:
+        self._reminder_left_s = REMINDER_DURATION_S
+        screens = display_bounds() or [
+            (0, 0, self.root.winfo_screenwidth(), self.root.winfo_screenheight())
+        ]
+        for screen in screens:
+            self._show_popup_on(screen)
+
+    def _show_popup_on(self, screen: tuple[int, int, int, int]) -> None:
+        screen_x, screen_y, screen_w, screen_h = screen
         popup = tk.Toplevel(self.root)
         popup.overrideredirect(True)
         popup.attributes("-topmost", True)
@@ -170,24 +231,25 @@ class RemEYEnderApp:
         body = ttk.Frame(popup, padding=24)
         body.pack()
         ttk.Label(body, text="Look away from the screen 👀", font=("Helvetica", 20)).pack()
-        self._reminder_left_s = REMINDER_DURATION_S
-        self._reminder_label = ttk.Label(body, text=f"{REMINDER_DURATION_S} s")
-        self._reminder_label.pack(pady=(8, 0))
+        label = ttk.Label(body, text=f"{REMINDER_DURATION_S} s")
+        label.pack(pady=(8, 0))
 
         popup.update_idletasks()
         width, height = popup.winfo_reqwidth(), popup.winfo_reqheight()
-        x = (popup.winfo_screenwidth() - width) // 2
-        y = (popup.winfo_screenheight() - height) // 3
+        x = screen_x + (screen_w - width) // 2
+        y = screen_y + (screen_h - height) // 3
         popup.geometry(f"{width}x{height}+{x}+{y}")
         popup.lift()
-        self.reminder = popup
+        self.reminders.append(popup)
+        self._reminder_labels.append(label)
 
     def _close_reminder(self) -> None:
-        if self.reminder is None:
+        if not self.reminders:
             return
-        self.reminder.destroy()
-        self.reminder = None
-        self._reminder_label = None
+        for popup in self.reminders:
+            popup.destroy()
+        self.reminders = []
+        self._reminder_labels = []
         self.remaining_s = BREAK_INTERVAL_S
         if not self.running:
             self._cancel_tick()
@@ -195,7 +257,7 @@ class RemEYEnderApp:
 
     def _refresh(self) -> None:
         self.countdown_label.configure(text=format_mmss(self.remaining_s))
-        if self.reminder is not None:
+        if self.reminders:
             status = "Break!"
         elif self.running and self.remaining_s == 0:
             status = "Break postponed: in a call"
