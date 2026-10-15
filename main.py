@@ -14,6 +14,8 @@ REMINDER_DURATION_S: int = 10
 TICK_MS: int = 1000
 # Postpone a due break while any app is capturing the microphone (i.e. you're in a call).
 POSTPONE_DURING_CALLS: bool = True
+# How often to check for a call while counting down; once a break is due it's checked every tick.
+CALL_CHECK_INTERVAL_S: int = 30
 
 
 class _AudioObjectPropertyAddress(ctypes.Structure):
@@ -245,6 +247,9 @@ class RemEYEnderApp:
         self.root = root
         self.remaining_s: int = BREAK_INTERVAL_S
         self.running: bool = False
+        # Re-checked periodically so the status shows the call before the break is due.
+        self.in_call: bool = False
+        self._call_check_in_s: int = 0
         # One popup (and countdown label) per display while a reminder is showing.
         self.reminders: list[tk.Toplevel] = []
         self._reminder_left_s: int = 0
@@ -284,6 +289,9 @@ class RemEYEnderApp:
 
     def stop(self) -> None:
         self.running = False
+        self.in_call = False
+        # Check on the first tick after the next Start.
+        self._call_check_in_s = 0
         # Keep ticking while a reminder is showing so it still closes on its own.
         if not self.reminders:
             self._cancel_tick()
@@ -318,16 +326,17 @@ class RemEYEnderApp:
                     label.configure(text=f"{self._reminder_left_s} s")
         elif self.running:
             self.remaining_s = max(self.remaining_s - 1, 0)
+            self._call_check_in_s -= 1
+            if self._call_check_in_s <= 0 or self.remaining_s == 0:
+                self.in_call = POSTPONE_DURING_CALLS and microphone_in_use()
+                self._call_check_in_s = CALL_CHECK_INTERVAL_S
             # Once due, stay at 00:00 and re-check every tick until the call ends.
-            if self.remaining_s == 0 and not self._postponed():
+            if self.remaining_s == 0 and not self.in_call:
                 self._show_reminder()
 
         if self.running or self.reminders:
             self._schedule_tick()
         self._refresh()
-
-    def _postponed(self) -> bool:
-        return POSTPONE_DURING_CALLS and microphone_in_use()
 
     def _show_reminder(self) -> None:
         self._reminder_left_s = REMINDER_DURATION_S
@@ -375,8 +384,10 @@ class RemEYEnderApp:
         self.countdown_label.configure(text=format_mmss(self.remaining_s))
         if self.reminders:
             status = "Break!"
-        elif self.running and self.remaining_s == 0:
+        elif self.running and self.in_call and self.remaining_s == 0:
             status = "Break postponed: in a call"
+        elif self.running and self.in_call:
+            status = "Running · in a call (break will wait)"
         elif self.running:
             status = "Running"
         else:

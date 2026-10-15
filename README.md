@@ -11,8 +11,10 @@ Run app, press start and it reminds every 30 minutes to take
 a break (silent). The reminder stays for 10 seconds on all screens, then
 disappears silently and the timer resets.
 
-If a meeting is ongoing (detected via microphone usage), the reminder waits and
-appears as soon as the call ends.
+If a meeting is ongoing (detected via microphone usage), the reminder waits
+at 00:00 and appears as soon as the call ends. While the timer runs, the app
+checks the mic every 30 s and shows "in a call" in its status line.
+
 
 ## Installation
 
