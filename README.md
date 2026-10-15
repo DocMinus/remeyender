@@ -15,3 +15,21 @@ then dissappear silently and reset.
 Start window should have a simple start / stop / reset / exit option.
 
 For python perhaps use tkinter?
+
+## Run
+
+```
+uv run main.py
+```
+
+## Build a standalone macOS app
+
+```
+uv sync
+uv run pyinstaller --windowed --name RemEYEnder --noconfirm main.py
+```
+
+Result: `dist/RemEYEnder.app` (bundles Python + Tcl/Tk, ~27 MB). Drag it to
+`/Applications`. It's unsigned: a locally built copy opens normally, but a copy
+downloaded or sent from elsewhere needs right-click → Open on first launch.
+A Windows `.exe` has to be built on Windows with the same command.

@@ -8,3 +8,11 @@ wheels/
 
 # Virtual environments
 .venv
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Icon?
+*.spec

@@ -23,6 +23,18 @@ Other options, not yet done:
   notifications when mirroring or sharing the display"). Unverified whether Teams
   sharing triggers it; loses the 10 s on-screen countdown.
 
+## Packaged app (macOS)
+
+- [ ] **Hide the Dock icon (`LSUIElement`).** Set `LSUIElement = True` in the bundle's
+  Info.plist (PyInstaller: `info_plist={"LSUIElement": True}` in the `.spec`'s
+  `BUNDLE(...)`, or edit `Contents/Info.plist` after building). No Dock icon and no
+  Cmd-Tab entry; the main window stays. Downside: once the window is hidden behind
+  others it's hard to get back. Pairs well with a menu-bar icon (would need e.g.
+  `rumps`/PyObjC, since tkinter can't make menu-bar items).
+- [ ] **Custom app icon.** Make a 1024×1024 PNG (e.g. an eye), convert to `.icns`
+  (`iconutil`, or let PyInstaller convert a PNG if Pillow is installed) and build with
+  `--icon RemEYEnder.icns`. Could also set the Tk window icon via `root.iconphoto`.
+
 ## Later
 
 - [ ] Compiled native version (Swift or C++). In Swift, options 1–3 above get simpler
