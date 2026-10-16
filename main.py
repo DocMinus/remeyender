@@ -6,6 +6,7 @@ import re
 import subprocess
 import sys
 import tkinter as tk
+from pathlib import Path
 from tkinter import ttk
 from typing import Any
 
@@ -16,6 +17,8 @@ TICK_MS: int = 1000
 POSTPONE_DURING_CALLS: bool = True
 # How often to check for a call while counting down; once a break is due it's checked every tick.
 CALL_CHECK_INTERVAL_S: int = 30
+# Next to main.py, or PyInstaller's unpack dir (files added with --add-data).
+ICONS_DIR: Path = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)) / "icons"
 
 
 class _AudioObjectPropertyAddress(ctypes.Structure):
@@ -237,6 +240,16 @@ def _display_bounds_macos() -> list[tuple[int, int, int, int]]:
     return bounds
 
 
+def set_window_icon(root: tk.Tk) -> None:
+    """Window/taskbar/Dock icon; keeps Tk's default if the PNGs aren't there."""
+    try:
+        large = tk.PhotoImage(master=root, file=ICONS_DIR / "RemEYEnder.png")
+        small = tk.PhotoImage(master=root, file=ICONS_DIR / "RemEYEnder-small.png")
+    except tk.TclError:
+        return
+    root.iconphoto(True, large, small)
+
+
 def format_mmss(seconds: int) -> str:
     minutes, secs = divmod(max(seconds, 0), 60)
     return f"{minutes:02d}:{secs:02d}"
@@ -257,6 +270,7 @@ class RemEYEnderApp:
         self._tick_job: str | None = None
 
         root.title("RemEYEnder")
+        set_window_icon(root)
         root.resizable(False, False)
         root.protocol("WM_DELETE_WINDOW", self.exit)
 

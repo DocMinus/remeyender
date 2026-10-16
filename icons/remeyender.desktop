@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=RemEYEnder
+Comment=Reminder to look away from the screen every so often
+# Replace both paths with absolute ones, then copy this file to ~/.local/share/applications/
+Exec=/path/to/RemEYEnder
+Icon=/path/to/RemEYEnder.png
+Terminal=false
+Categories=Utility;

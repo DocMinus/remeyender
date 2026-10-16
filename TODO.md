@@ -25,13 +25,9 @@ Other options, not yet done:
 
 ## App icon
 
-- [ ] **Custom app icon.** Make one 1024×1024 PNG (e.g. an eye) and derive the per-OS
-  formats from it:
-  - macOS: `.icns` (`iconutil`), build with `--icon RemEYEnder.icns`.
-  - Windows: `.ico` (multi-size), build with `--icon RemEYEnder.ico`.
-  - Linux: executables carry no embedded icon; point a `.desktop` file at the PNG.
-  - PyInstaller can convert the PNG itself if Pillow is installed.
-  - In-app (all OS): set the Tk window/taskbar icon via `root.iconphoto(True, ...)`.
+- [x] **Custom app icon.** `icons/iconbasis.png` → `make_icons.py` → `.icns`, `.ico`,
+  PNGs and a `.desktop` template; window icon set via `root.iconphoto`. See README.
+- [ ] Check the `.ico` on a real Windows taskbar.
 
 ## Cross-platform
 

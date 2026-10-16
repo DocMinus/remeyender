@@ -16,3 +16,4 @@ wheels/
 ._*
 Icon?
 *.spec
+!icons/
