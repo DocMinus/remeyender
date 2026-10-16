@@ -8,8 +8,9 @@ There are other timer apps "out there" already for more complex purposes.
 
 ## Usage
 Run app, press start and it reminds every 30 minutes to take 
-a break (silent). The reminder stays for 10 seconds on all screens, then
-disappears silently and the timer resets.
+a break (silent by default; uncheck "Silent alarm" to hear the system alert
+sound). The reminder stays for 10 seconds on all screens, then disappears
+silently and the timer resets.
 
 If a meeting is ongoing (detected via microphone usage), the reminder waits
 at 00:00 and appears as soon as the call ends. While the timer runs, the app

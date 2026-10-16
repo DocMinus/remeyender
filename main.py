@@ -1,4 +1,4 @@
-"""RemEYEnder: a tiny, silent reminder to look away from the screen every so often."""
+"""RemEYEnder: a tiny, (optionally) silent reminder to look away from the screen every so often."""
 
 import ctypes
 import ctypes.util
@@ -278,6 +278,12 @@ class RemEYEnderApp:
         ):
             button.grid(row=3, column=col, padx=2)
 
+        # Unchecked: play the system alert sound when a reminder appears.
+        self.silent = tk.BooleanVar(value=True)
+        ttk.Checkbutton(frame, text="Silent alarm", variable=self.silent).grid(
+            row=4, column=0, columnspan=4, pady=(12, 0)
+        )
+
         self._refresh()
 
     def start(self) -> None:
@@ -345,6 +351,8 @@ class RemEYEnderApp:
         ]
         for screen in screens:
             self._show_popup_on(screen)
+        if not self.silent.get():
+            self.root.bell()
 
     def _show_popup_on(self, screen: tuple[int, int, int, int]) -> None:
         screen_x, screen_y, screen_w, screen_h = screen
