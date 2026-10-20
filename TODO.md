@@ -26,13 +26,19 @@ Other options, not yet done:
 ## App icon
 
 - [x] **Custom app icon.** `icons/iconbasis.png` → `make_icons.py` → `.icns`, `.ico`,
-  PNGs and a `.desktop` template; window icon set via `root.iconphoto`. See README.
+  PNGs and a `.desktop` template; window icon set via `root.iconphoto`. See INSTALL.md.
 - [ ] Check the `.ico` on a real Windows taskbar.
 
 ## Cross-platform
 
-- [ ] **Test on Windows and Linux.** The Windows/Linux branches in `main.py` are
-  type-checked but untested on real machines (developed on macOS).
+- [ ] **Test on Windows.** The Windows branches in `main.py` are type-checked but untested
+  on a real machine (developed on macOS).
+- [x] **Test on Linux, headless.** Xvfb, Ubuntu, uv Python 3.12 / Tk 9.0: onefile build runs;
+  countdown, reminder, call postponement and per-monitor popups pass with stubbed
+  `xrandr`/`pactl`.
+- [ ] **Test on a Linux desktop (X11).** Always-on-top under a window manager, real
+  `pactl`/`xrandr` output, alarm sound, 👀 emoji rendering (missing under Xvfb, likely no
+  emoji font).
 - [ ] **Linux on Wayland.** Tk runs via XWayland; popup placement on secondary monitors and
   "always on top" may not be honoured by every compositor. `pactl` also counts any
   recording stream (e.g. a volume meter) as "in a call".
