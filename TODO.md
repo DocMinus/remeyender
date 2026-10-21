@@ -10,48 +10,48 @@ for the whole call, not only while sharing.
 Other options, not yet done:
 
 - [ ] **Hide the popup from screen capture.** Set the popup's `NSWindow.sharingType` to
-  `NSWindowSharingNone` (via `ctypes`/libobjc or PyObjC). You'd still see the reminder but
-  viewers wouldn't. Caveat: since macOS 15, capture through ScreenCaptureKit (likely used
-  by current Teams) reportedly ignores this flag. Cheap to try; could be combined with
-  the call check so reminders show during calls without sharing.
+      `NSWindowSharingNone` (via `ctypes`/libobjc or PyObjC). You'd still see the reminder but
+      viewers wouldn't. Caveat: since macOS 15, capture through ScreenCaptureKit (likely used
+      by current Teams) reportedly ignores this flag. Cheap to try; could be combined with
+      the call check so reminders show during calls without sharing.
 - [ ] **Detect sharing specifically.** Use `CGWindowListCopyWindowInfo` to look for Teams'
-  sharing toolbar / red-border window. Needs the Screen Recording permission to read
-  window titles, breaks when Teams renames windows, and only covers Teams (or each app
-  you add).
+      sharing toolbar / red-border window. Needs the Screen Recording permission to read
+      window titles, breaks when Teams renames windows, and only covers Teams (or each app
+      you add).
 - [ ] **Use native macOS notifications instead of the popup.** macOS can hold back
-  notifications while the display is shared (System Settings → Notifications → "Allow
-  notifications when mirroring or sharing the display"). Unverified whether Teams
-  sharing triggers it; loses the 10 s on-screen countdown.
+      notifications while the display is shared (System Settings → Notifications → "Allow
+      notifications when mirroring or sharing the display"). Unverified whether Teams
+      sharing triggers it; loses the 10 s on-screen countdown.
 
 ## App icon
 
 - [x] **Custom app icon.** `icons/iconbasis.png` → `make_icons.py` → `.icns`, `.ico`,
-  PNGs and a `.desktop` template; window icon set via `root.iconphoto`. See INSTALL.md.
-- [ ] Check the `.ico` on a real Windows taskbar.
+      PNGs and a `.desktop` template; window icon set via `root.iconphoto`. See INSTALL.md.
+- [x] Check the `.ico` on a real Windows taskbar.
 
 ## Cross-platform
 
-- [ ] **Test on Windows.** The Windows branches in `main.py` are type-checked but untested
-  on a real machine (developed on macOS).
+- [x] **Test on Windows.** The Windows branches in `main.py` are type-checked but untested
+      on a real machine.
 - [x] **Test on Linux, headless.** Xvfb, Ubuntu, uv Python 3.12 / Tk 9.0: onefile build runs;
-  countdown, reminder, call postponement and per-monitor popups pass with stubbed
-  `xrandr`/`pactl`.
+      countdown, reminder, call postponement and per-monitor popups pass with stubbed
+      `xrandr`/`pactl`.
 - [ ] **Test on a Linux desktop (X11).** Always-on-top under a window manager, real
-  `pactl`/`xrandr` output, alarm sound, 👀 emoji rendering (missing under Xvfb, likely no
-  emoji font).
+      `pactl`/`xrandr` output, alarm sound, 👀 emoji rendering (missing under Xvfb, likely no
+      emoji font).
 - [ ] **Linux on Wayland.** Tk runs via XWayland; popup placement on secondary monitors and
-  "always on top" may not be honoured by every compositor. `pactl` also counts any
-  recording stream (e.g. a volume meter) as "in a call".
+      "always on top" may not be honoured by every compositor. `pactl` also counts any
+      recording stream (e.g. a volume meter) as "in a call".
 
 ## Optional
 
 - [ ] Compiled native version Swift, options 1–3 above get simpler
-  (direct AppKit/CoreAudio/CoreGraphics access, no ctypes). Best fit for features that 
-  are hard in Python. Those include a menu-bar icon, hiding the popup from
-  screen sharing, and a small, signed, native app. 
-  It's also less code than C++ for the same Mac app.
-- [ ] C++ version for cross platform - doesn't gain much, but could be done. 
-  The call check and the monitor list are separate code for each system in any language.
-  The window would also need a cross-platform UI library: Qt is large and has licensing
-  strings attached, and wxWidgets is the lighter option. 
-  One would end up with more code than the Python version, not less.
+      (direct AppKit/CoreAudio/CoreGraphics access, no ctypes). Best fit for features that
+      are hard in Python. Those include a menu-bar icon, hiding the popup from
+      screen sharing, and a small, signed, native app.
+      It's also less code than C++ for the same Mac app.
+- [ ] C++ version for cross platform - doesn't gain much, but could be done.
+      The call check and the monitor list are separate code for each system in any language.
+      The window would also need a cross-platform UI library: Qt is large and has licensing
+      strings attached, and wxWidgets is the lighter option.
+      One would end up with more code than the Python version, not less.

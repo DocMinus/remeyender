@@ -65,17 +65,12 @@ downloaded or sent from elsewhere needs right-click → Open on first launch.
 Has to be built on Windows. Recommended: a single executable.
 
 ```
-uv run pyinstaller --onefile --windowed --name RemEYEnder --noconfirm \
-  --icon icons/RemEYEnder.ico \
-  --add-data icons/RemEYEnder.png:icons --add-data icons/RemEYEnder-small.png:icons \
-  main.py
+uv run pyinstaller --onefile --windowed --name RemEYEnder --noconfirm --icon icons\RemEYEnder.ico --add-data icons\RemEYEnder.png:icons --add-data icons\RemEYEnder-small.png:icons  main.py
 ```
 
-(In `cmd`, put it on one line without the `\`; in PowerShell use a backtick instead.)
-
-Result: `dist/RemEYEnder.exe`; place it wherever you like. `--windowed` stops a console
+Result: `dist\RemEYEnder.exe`; place it wherever you like. `--windowed` stops a console
 window from opening. A single-file build starts a little slower, as it unpacks itself on
-each launch. Without `--onefile`, the result is a folder, `dist/RemEYEnder/`, that has to be
+each launch. Without `--onefile`, the result is a folder, `dist\RemEYEnder\`, that has to be
 kept together.
 
 ## Build a standalone app on Linux
