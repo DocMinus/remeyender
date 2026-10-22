@@ -22,9 +22,9 @@ jobs:
       run:
         shell: bash  # Git Bash on Windows, so the commands below work everywhere
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v10
 
       - name: Install dependencies
         run: uv sync --locked
@@ -54,7 +54,7 @@ jobs:
         if: matrix.name == 'windows'
         run: 7z a RemEYEnder-${{ github.ref_name }}-windows.zip ./dist/RemEYEnder.exe
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.name }}
           path: RemEYEnder-*
@@ -63,7 +63,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
