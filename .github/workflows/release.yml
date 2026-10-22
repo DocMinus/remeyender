@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            name: macos
+          - os: windows-latest
+            name: windows
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash  # Git Bash on Windows, so the commands below work everywhere
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Build (macOS .app)
+        if: matrix.name == 'macos'
+        run: |
+          uv run pyinstaller --windowed --name RemEYEnder --noconfirm \
+            --icon icons/RemEYEnder.icns \
+            --add-data icons/RemEYEnder.png:icons --add-data icons/RemEYEnder-small.png:icons \
+            main.py
+
+      - name: Build (Windows single file)
+        if: matrix.name == 'windows'
+        run: |
+          uv run pyinstaller --onefile --windowed --name RemEYEnder --noconfirm \
+            --icon icons/RemEYEnder.ico \
+            --add-data icons/RemEYEnder.png:icons --add-data icons/RemEYEnder-small.png:icons \
+            main.py
+
+      - name: Package (macOS)
+        if: matrix.name == 'macos'
+        # ditto keeps the .app bundle's symlinks and permissions intact; plain zip can break them
+        run: ditto -c -k --keepParent dist/RemEYEnder.app RemEYEnder-${{ github.ref_name }}-macos.zip
+
+      - name: Package (Windows)
+        if: matrix.name == 'windows'
+        run: 7z a RemEYEnder-${{ github.ref_name }}-windows.zip ./dist/RemEYEnder.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: RemEYEnder-*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create release with the macOS and Windows builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" artifacts/* \
+            --repo "${{ github.repository }}" \
+            --title "RemEYEnder ${{ github.ref_name }}" \
+            --generate-notes
