@@ -42,3 +42,7 @@ If a check isn't available, the reminder falls back to the main screen / is neve
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
+## Contributions
+- DocMinus
+- Claude
